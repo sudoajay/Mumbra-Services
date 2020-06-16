@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">Mumbra Services</string>
+
+    <!--    Network Provider-->
+    <string name="wifi_text">Wifi</string>
+    <string name="mobile_data_text">Mobile Data</string>
+    <string name="vpn_text">Vpn</string>
+    <string name="no_internet_text">No Internet</string>
+
 </resources>
