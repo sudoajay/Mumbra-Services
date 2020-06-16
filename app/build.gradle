@@ -25,10 +25,10 @@ android {
         }
     }
 
-    dataBinding {
-        enabled = true
-    }
+    buildFeatures{
+        dataBinding = true
 
+    }
     android {
         compileOptions {
             sourceCompatibility JavaVersion.VERSION_1_8

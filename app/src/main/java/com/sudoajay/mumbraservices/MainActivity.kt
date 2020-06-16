@@ -6,7 +6,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.view.ViewTreeObserver.OnScrollChangedListener
 import android.webkit.WebResourceRequest
@@ -42,7 +41,7 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun onSwipeRefresh() {
-        binding.swipeRefresh.setColorSchemeResources(R.color.colorPrimary)
+        binding.swipeRefresh.setColorSchemeResources(R.color.appTheme)
         binding.swipeRefresh.setProgressViewOffset(true, 0, 100)
 
         binding.swipeRefresh.setOnRefreshListener {

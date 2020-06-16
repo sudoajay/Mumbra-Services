@@ -1,11 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#1c457b</color>
-    <color name="colorPrimaryDark">#1c457b</color>
-    <color name="colorAccent">#D6D1D1</color>
+    <color name="colorPrimary">#3f3f3f</color>
+    <color name="colorPrimaryDark">#2a2a2a</color>
+    <color name="colorAccent">#c4c4c4</color>
 
 
     <!--Toast Color Background and text Color-->
     <color name="toastBackgroundColor">@android:color/black</color>
     <color name="toastTextColor">#D6D1D1</color>
+
+
+<!--   Style and splash  Color-->
+    <color name="gray">#c4c4c4</color>
+    <color name="dark_gray">#3f3f3f</color>
+    <color name="dark_gray_status">#2a2a2a</color>
+
+    <color name="appTheme">#FD8230</color>
+
 </resources>

@@ -18,8 +18,8 @@
             <FrameLayout
                 android:id="@+id/frameLayout"
                 android:layout_width="match_parent"
-                android:layout_height="3dp"
-                android:background="@color/colorPrimary"
+                android:layout_height="@dimen/loadingBarheight"
+                android:background="@color/colorPrimaryDark"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintHorizontal_bias="0.5"
                 app:layout_constraintStart_toStartOf="parent"
@@ -29,6 +29,7 @@
                     android:id="@+id/progressBar"
                     style="?android:attr/progressBarStyleHorizontal"
                     android:layout_width="match_parent"
+                    android:theme="@style/ProgressBarTheme"
                     android:layout_height="match_parent"
                     android:indeterminate="true" />
 
