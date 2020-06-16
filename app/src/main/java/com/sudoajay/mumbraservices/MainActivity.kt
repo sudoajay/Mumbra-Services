@@ -6,7 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
+import android.util.Log
 import android.view.View
 import android.view.ViewTreeObserver.OnScrollChangedListener
 import android.webkit.WebResourceRequest
@@ -14,15 +14,16 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout.OnRefreshListener
 import com.sudoajay.mumbraservices.databinding.ActivityMainBinding
-import com.sudoajay.mumbraservices.helperClass.ConnectivityType
 import com.sudoajay.mumbraservices.helperClass.CustomToast
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
-class MainActivity : AppCompatActivity(), OnRefreshListener {
+class MainActivity : AppCompatActivity() {
     private val saveBackPage: MutableList<String> = mutableListOf()
     private var doubleBackToExitPressedOnce = false
-    private val webPage = "https://myigfollowers.com/"
+    private val webPage = "https://www.mumbraservices.com/"
     private var mOnScrollChangedListener: OnScrollChangedListener? = null
     private lateinit var binding: ActivityMainBinding
 
@@ -33,21 +34,34 @@ class MainActivity : AppCompatActivity(), OnRefreshListener {
 
         binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
 
-        saveBackPage.add(webPage)
+//        Setup and Configuration
+        onSwipeRefresh()
+        showWebView()
 
-        // Run Thread For InternetConnection.
-        runThreadInternet()
-
-
-
-        binding.swipeRefresh.setColorSchemeResources(R.color.colorPrimary)
-        binding.swipeRefresh.setProgressViewOffset(true, 0, 100)
-        show()
-        binding.swipeRefresh.setOnRefreshListener(this)
     }
 
+
+    private fun onSwipeRefresh() {
+        binding.swipeRefresh.setColorSchemeResources(R.color.colorPrimary)
+        binding.swipeRefresh.setProgressViewOffset(true, 0, 100)
+
+        binding.swipeRefresh.setOnRefreshListener {
+            binding.myWebView.reload()
+            GlobalScope.launch {
+                delay(500)
+                binding.swipeRefresh.isRefreshing = false
+            }
+
+
+        }
+    }
+
+
     @SuppressLint("SetJavaScriptEnabled", "WrongConstant")
-    private fun show() {
+    private fun showWebView() {
+
+        saveBackPage.add(webPage)
+
         binding.myWebView.setPadding(0, 0, 0, 0)
         binding.myWebView.setInitialScale(1)
         binding.myWebView.scrollBarStyle = 33554432
@@ -62,7 +76,9 @@ class MainActivity : AppCompatActivity(), OnRefreshListener {
         settings.loadWithOverviewMode = true
         binding.myWebView.webViewClient = CustomWebViewClient()
         binding.myWebView.loadUrl(webPage)
+
     }
+
 
     override fun onBackPressed() {
         if (saveBackPage.size > 1) {
@@ -75,7 +91,12 @@ class MainActivity : AppCompatActivity(), OnRefreshListener {
             }
             doubleBackToExitPressedOnce = true
             CustomToast.toastIt(applicationContext, "Click Back Again To Exit")
-            Handler().postDelayed({ doubleBackToExitPressedOnce = false }, 2000)
+
+            GlobalScope.launch {
+                delay(2000)
+                doubleBackToExitPressedOnce = false
+            }
+
         }
     }
 
@@ -86,27 +107,14 @@ class MainActivity : AppCompatActivity(), OnRefreshListener {
         startActivity(homeIntent)
     }
 
-    private fun runThreadInternet() {
-        Handler().postDelayed({
-            if (!ConnectivityType.isNetworkConnected(applicationContext)) {
-                // do something...
-                runThreadInternet()
-            } else {
-                binding.myWebView.loadUrl(saveBackPage[saveBackPage.size - 1])
-            }
-        }, 5000) // 5 sec
+
+    private fun onError() {
+        binding.myWebView.loadUrl("file:///android_asset/noInternetConnection.html")
     }
 
-    override fun onRefresh() {
-        binding.swipeRefresh.isRefreshing = true
-        Handler().postDelayed({
-            binding.frameLayout.visibility = View.VISIBLE
-            binding.myWebView.loadUrl(saveBackPage[saveBackPage.size - 1])
-            binding.swipeRefresh.isRefreshing = false
-        }, 2000)
-    }
 
     internal inner class CustomWebViewClient : WebViewClient() {
+
         override fun shouldOverrideUrlLoading(
             view: WebView,
             url: String
@@ -126,7 +134,7 @@ class MainActivity : AppCompatActivity(), OnRefreshListener {
 
         private fun handleUri(uri: Uri): Boolean {
             val host = uri.host!!
-            return if (host == "myigfollowers.com") {
+            return if (host == "www.mumbraservices.com") {
                 binding.frameLayout.visibility = View.VISIBLE
                 // Returning false means that you are going to load this url in the webView itself
                 saveBackPage.add(uri.toString())
@@ -146,7 +154,7 @@ class MainActivity : AppCompatActivity(), OnRefreshListener {
             description: String,
             failingUrl: String
         ) {
-            binding.myWebView.loadUrl("file:///android_asset/noInternetConnection.html")
+            onError()
         }
 
         override fun onPageFinished(view: WebView, url: String) {
