@@ -6,5 +6,7 @@
     <string name="mobile_data_text">Mobile Data</string>
     <string name="vpn_text">Vpn</string>
     <string name="no_internet_text">No Internet</string>
+    <string name="select_pdf_file_text">Select Pdf File</string>
+    <string name="cannot_open_file_chooser_text">Cannot Open File Chooser</string>
 
 </resources>

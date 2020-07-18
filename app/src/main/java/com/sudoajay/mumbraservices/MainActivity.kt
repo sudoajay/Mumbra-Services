@@ -1,10 +1,9 @@
 package com.sudoajay.mumbraservices
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.annotation.TargetApi
+import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -13,8 +12,6 @@ import android.view.View
 import android.view.ViewTreeObserver.OnScrollChangedListener
 import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.databinding.DataBindingUtil
 import com.sudoajay.mumbraservices.databinding.ActivityMainBinding
 import com.sudoajay.mumbraservices.helperClass.CustomToast
@@ -29,10 +26,10 @@ class MainActivity : AppCompatActivity() {
     private val webPage = "https://www.mumbraservices.com/iso.php"
     private var mOnScrollChangedListener: OnScrollChangedListener? = null
     private lateinit var binding: ActivityMainBinding
-    private var filePermRequest = 1
-
-
-
+    private var mUploadMessage: ValueCallback<Uri>? = null
+    var uploadMessage: ValueCallback<Array<Uri>>? = null
+    private val requestSelectCode = 100
+    private val fileChooserCode = 101
 
     @SuppressLint("SetJavaScriptEnabled", "WrongConstant")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -78,11 +75,10 @@ class MainActivity : AppCompatActivity() {
             settings.allowUniversalAccessFromFileURLs = true
         }
         settings.domStorageEnabled = true
-        settings.domStorageEnabled = true;  // Open DOM storage function
-        settings.setAppCacheMaxSize(1024*1024*8);
-        val appCachePath = applicationContext.applicationContext.cacheDir.absolutePath;
-        settings.setAppCachePath(appCachePath);
-        settings.allowFileAccess = true;    // Readable file cache
+        settings.domStorageEnabled = true
+        val appCachePath = applicationContext.applicationContext.cacheDir.absolutePath
+        settings.setAppCachePath(appCachePath)
+        settings.allowFileAccess = true
         settings.setAppCacheEnabled(true)
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = true
@@ -188,82 +184,76 @@ class MainActivity : AppCompatActivity() {
     }
 
     internal inner class CustomWebChromeClient : WebChromeClient() {
+
+
         override fun onShowFileChooser(
             webView: WebView?,
             filePathCallback: ValueCallback<Array<Uri>>?,
             fileChooserParams: FileChooserParams?
         ): Boolean {
-
-            if(checkPermission(1) && checkPermission(2)){
-
-            }else{
-                getPermission()
-                return false
-            }
-
-            return true
-        }
-    }
-
-    //Checking if particular permission is given or not
-    fun checkPermission(permission: Int): Boolean {
-        when (permission) {
-            1 -> return ContextCompat.checkSelfPermission(
-                this,
-                returnPermission(2)
-            ) == PackageManager.PERMISSION_GRANTED
-            2 -> return ContextCompat.checkSelfPermission(
-                this,
-                returnPermission(1)
-            ) == PackageManager.PERMISSION_GRANTED
-        }
-        return false
-    }
-
-
-    //Checking permission for storage and camera for writing and uploading images
-    fun getPermission() {
-        //Checking for storage permission to write images for upload
-        if (!checkPermission(1) && !checkPermission(
-                2
-            )
-        ) {
-            ActivityCompat.requestPermissions(this@MainActivity, arrayOf(returnPermission(1),returnPermission(2)
-            ,returnPermission(3)), filePermRequest)
-
-            //Checking for WRITE_EXTERNAL_STORAGE permission
-        } else if (!checkPermission(1)) {
-            ActivityCompat.requestPermissions(
-                this@MainActivity,
-                arrayOf(
-                    returnPermission(2)
-                    ,returnPermission(3)
-                ),
-                filePermRequest
-            )
-
-            //Checking for CAMERA permissions
-        } else if (!checkPermission(2)) {
-            ActivityCompat.requestPermissions(
-                this@MainActivity,
-                arrayOf(returnPermission(1)),
-                filePermRequest
-            )
-        }
-    }
-
-    private fun returnPermission(int: Int) :String{
-        return when(int) {
-            1 -> Manifest.permission.CAMERA
-            2 -> Manifest.permission.WRITE_EXTERNAL_STORAGE
-            3 -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-                Manifest.permission.READ_EXTERNAL_STORAGE
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                if (uploadMessage != null) {
+                    uploadMessage!!.onReceiveValue(null)
+                    uploadMessage = null
+                }
+                uploadMessage = filePathCallback
+                try {
+                    val intent = Intent()
+                    intent.type = "application/pdf"
+                    intent.action = Intent.ACTION_OPEN_DOCUMENT
+                    intent.addCategory(Intent.CATEGORY_OPENABLE)
+                    startActivityForResult(
+                        Intent.createChooser(intent, getString(R.string.select_pdf_file_text)),
+                        requestSelectCode
+                    )
+                } catch (e: ActivityNotFoundException) {
+                    uploadMessage = null
+                    CustomToast.toastIt(applicationContext, getString(R.string.cannot_open_file_chooser_text))
+                    return false
+                }
+                return true
             } else {
-                ""
+                try {
+                    val intent = Intent(Intent.ACTION_GET_CONTENT)
+                    intent.addCategory(Intent.CATEGORY_OPENABLE)
+                    intent.type = "application/pdf"
+                    startActivityForResult(
+                        Intent.createChooser(intent, getString(R.string.select_pdf_file_text)),
+                        fileChooserCode
+                    )
+                } catch (e: ActivityNotFoundException) {
+                    uploadMessage = null
+                    CustomToast.toastIt(applicationContext, getString(R.string.cannot_open_file_chooser_text))
+                    return false
+                }
+                return true
             }
-            else -> ""
+
         }
 
     }
 
-}
+        override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+            super.onActivityResult(requestCode, resultCode, data)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                if (this.requestSelectCode == requestCode && data != null) {
+                    if (uploadMessage == null) return
+                    uploadMessage!!.onReceiveValue(
+                        WebChromeClient.FileChooserParams.parseResult(
+                            resultCode,
+                            data
+                        )
+                    )
+                    uploadMessage = null
+                }
+            } else if (requestCode == fileChooserCode && data != null) {
+                if (null == mUploadMessage) return
+
+                val result =
+                    if (intent == null || resultCode != RESULT_OK) null else intent.data
+                mUploadMessage!!.onReceiveValue(result)
+                mUploadMessage = null
+            }
+
+        }
+    }
