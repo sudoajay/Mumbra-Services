@@ -11,6 +11,7 @@ import android.util.Log
 import android.view.View
 import android.view.ViewTreeObserver.OnScrollChangedListener
 import android.webkit.*
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
 import com.sudoajay.mumbraservices.databinding.ActivityMainBinding
@@ -27,7 +28,7 @@ class MainActivity : AppCompatActivity() {
     private var mOnScrollChangedListener: OnScrollChangedListener? = null
     private lateinit var binding: ActivityMainBinding
     private var mUploadMessage: ValueCallback<Uri>? = null
-    var uploadMessage: ValueCallback<Array<Uri>>? = null
+    private var uploadMessage: ValueCallback<Array<Uri>>? = null
     private val requestSelectCode = 100
     private val fileChooserCode = 101
 
@@ -184,7 +185,35 @@ class MainActivity : AppCompatActivity() {
     }
 
     internal inner class CustomWebChromeClient : WebChromeClient() {
+        // For 3.0+ Devices (Start)
+        // onActivityResult attached before constructor
+        // For 3.0+ Devices (Start)
+        // onActivityResult attached before constructor
 
+        // For 3.0+ Devices (Start)
+        // onActivityResult attached before constructor
+        protected fun openFileChooser(
+            uploadMsg: ValueCallback<Uri>,
+            acceptType: String?
+        ) {
+            mUploadMessage = uploadMsg
+            try {
+            val i = Intent(Intent.ACTION_GET_CONTENT)
+            i.addCategory(Intent.CATEGORY_OPENABLE)
+            i.type = "application/pdf"
+            startActivityForResult(
+                Intent.createChooser(i, getString(R.string.select_pdf_file_text)),
+                fileChooserCode
+            )
+            } catch (e: ActivityNotFoundException) {
+                uploadMessage = null
+                CustomToast.toastIt(
+                    applicationContext,
+                    getString(R.string.cannot_open_file_chooser_text)
+                )
+
+            }
+        }
 
         override fun onShowFileChooser(
             webView: WebView?,
@@ -208,52 +237,91 @@ class MainActivity : AppCompatActivity() {
                     )
                 } catch (e: ActivityNotFoundException) {
                     uploadMessage = null
-                    CustomToast.toastIt(applicationContext, getString(R.string.cannot_open_file_chooser_text))
-                    return false
-                }
-                return true
-            } else {
-                try {
-                    val intent = Intent(Intent.ACTION_GET_CONTENT)
-                    intent.addCategory(Intent.CATEGORY_OPENABLE)
-                    intent.type = "application/pdf"
-                    startActivityForResult(
-                        Intent.createChooser(intent, getString(R.string.select_pdf_file_text)),
-                        fileChooserCode
+                    CustomToast.toastIt(
+                        applicationContext,
+                        getString(R.string.cannot_open_file_chooser_text)
                     )
-                } catch (e: ActivityNotFoundException) {
-                    uploadMessage = null
-                    CustomToast.toastIt(applicationContext, getString(R.string.cannot_open_file_chooser_text))
                     return false
                 }
                 return true
             }
+            return false
 
         }
 
-    }
 
-        override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-            super.onActivityResult(requestCode, resultCode, data)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                if (this.requestSelectCode == requestCode && data != null) {
-                    if (uploadMessage == null) return
-                    uploadMessage!!.onReceiveValue(
-                        WebChromeClient.FileChooserParams.parseResult(
-                            resultCode,
-                            data
-                        )
-                    )
-                    uploadMessage = null
-                }
-            } else if (requestCode == fileChooserCode && data != null) {
-                if (null == mUploadMessage) return
+        //For Android 4.1 only
+        protected fun openFileChooser(
+            uploadMsg: ValueCallback<Uri>,
+            acceptType: String?,
+            capture: String?
+        ) {
+            mUploadMessage = uploadMsg
+            try{
+            val intent = Intent(Intent.ACTION_GET_CONTENT)
+            intent.addCategory(Intent.CATEGORY_OPENABLE)
+            intent.type = "application/pdf"
+            startActivityForResult(
+                Intent.createChooser(intent, getString(R.string.select_pdf_file_text)),
+                fileChooserCode
+            )
+            } catch (e: ActivityNotFoundException) {
+                uploadMessage = null
+                CustomToast.toastIt(
+                    applicationContext,
+                    getString(R.string.cannot_open_file_chooser_text)
+                )
 
-                val result =
-                    if (intent == null || resultCode != RESULT_OK) null else intent.data
-                mUploadMessage!!.onReceiveValue(result)
-                mUploadMessage = null
             }
-
         }
+
+        protected fun openFileChooser(uploadMsg: ValueCallback<Uri>) {
+            mUploadMessage = uploadMsg
+            try{
+            val i = Intent(Intent.ACTION_GET_CONTENT)
+            i.addCategory(Intent.CATEGORY_OPENABLE)
+            i.type = "application/pdf"
+            startActivityForResult(
+                Intent.createChooser(i, getString(R.string.select_pdf_file_text)),
+                fileChooserCode
+            )
+            } catch (e: ActivityNotFoundException) {
+                uploadMessage = null
+                CustomToast.toastIt(
+                    applicationContext,
+                    getString(R.string.cannot_open_file_chooser_text)
+                )
+
+            }
+        }
+
+
     }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, intent: Intent?) {
+        super.onActivityResult(requestCode, resultCode, intent)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            if (requestCode == requestSelectCode) {
+                if (uploadMessage == null) return
+                uploadMessage!!.onReceiveValue(
+                    WebChromeClient.FileChooserParams.parseResult(
+                        resultCode,
+                        intent
+                    )
+                )
+                uploadMessage = null
+            }
+        } else if (requestCode == fileChooserCode) {
+            if (null == mUploadMessage) return
+            // Use MainActivity.RESULT_OK if you're implementing WebViewFragment inside Fragment
+            // Use RESULT_OK only if you're implementing WebViewFragment inside an Activity
+            val result =
+                if (intent == null || resultCode != RESULT_OK) null else intent.data
+            mUploadMessage!!.onReceiveValue(result)
+            mUploadMessage = null
+        } else Toast.makeText(applicationContext, "Failed to Upload Image", Toast.LENGTH_LONG)
+            .show()
+
+    }
+
+}
