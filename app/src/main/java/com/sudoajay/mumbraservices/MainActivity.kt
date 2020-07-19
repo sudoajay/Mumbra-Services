@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
     private val saveBackPage: MutableList<String> = mutableListOf()
     private var doubleBackToExitPressedOnce = false
-    private val webPage = "https://www.mumbraservices.com/iso.php"
+    private val webPage = "https://www.mumbraservices.com"
     private var mOnScrollChangedListener: OnScrollChangedListener? = null
     private lateinit var binding: ActivityMainBinding
     private var mUploadMessage: ValueCallback<Uri>? = null
