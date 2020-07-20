@@ -1,36 +1,47 @@
 package com.sudoajay.mumbraservices
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.annotation.TargetApi
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
+import android.os.Environment
+import android.provider.MediaStore
 import android.view.View
 import android.view.ViewTreeObserver.OnScrollChangedListener
 import android.webkit.*
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.databinding.DataBindingUtil
 import com.sudoajay.mumbraservices.databinding.ActivityMainBinding
 import com.sudoajay.mumbraservices.helperClass.CustomToast
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.*
 
 
 class MainActivity : AppCompatActivity() {
     private val saveBackPage: MutableList<String> = mutableListOf()
     private var doubleBackToExitPressedOnce = false
-    private val webPage = "https://www.mumbraservices.com"
+    private val webPage =
+        "https://www.mumbraservices.com" // https://www.mumbraservices.com/gst.php
     private var mOnScrollChangedListener: OnScrollChangedListener? = null
     private lateinit var binding: ActivityMainBinding
-    private var mUploadMessage: ValueCallback<Uri>? = null
-    private var uploadMessage: ValueCallback<Array<Uri>>? = null
-    private val requestSelectCode = 100
-    private val fileChooserCode = 101
+    private var uploadFileArray: ValueCallback<Array<Uri>>? = null
+    private val fileChooserCode = 100
+    private val filePermission = 1
+    var aswCamMessage: String? = null
+
 
     @SuppressLint("SetJavaScriptEnabled", "WrongConstant")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -141,7 +152,6 @@ class MainActivity : AppCompatActivity() {
 
         private fun handleUri(uri: Uri): Boolean {
             val host = uri.host!!
-            Log.e("Uri", uri.toString())
             return if (host == "www.mumbraservices.com") {
                 binding.frameLayout.visibility = View.VISIBLE
                 // Returning false means that you are going to load this url in the webView itself
@@ -185,143 +195,172 @@ class MainActivity : AppCompatActivity() {
     }
 
     internal inner class CustomWebChromeClient : WebChromeClient() {
-        // For 3.0+ Devices (Start)
-        // onActivityResult attached before constructor
-        // For 3.0+ Devices (Start)
-        // onActivityResult attached before constructor
-
-        // For 3.0+ Devices (Start)
-        // onActivityResult attached before constructor
-        protected fun openFileChooser(
-            uploadMsg: ValueCallback<Uri>,
-            acceptType: String?
-        ) {
-            mUploadMessage = uploadMsg
-            try {
-            val i = Intent(Intent.ACTION_GET_CONTENT)
-            i.addCategory(Intent.CATEGORY_OPENABLE)
-            i.type = "application/pdf"
-            startActivityForResult(
-                Intent.createChooser(i, getString(R.string.select_pdf_file_text)),
-                fileChooserCode
-            )
-            } catch (e: ActivityNotFoundException) {
-                uploadMessage = null
-                CustomToast.toastIt(
-                    applicationContext,
-                    getString(R.string.cannot_open_file_chooser_text)
-                )
-
-            }
-        }
 
         override fun onShowFileChooser(
             webView: WebView?,
             filePathCallback: ValueCallback<Array<Uri>>?,
             fileChooserParams: FileChooserParams?
         ): Boolean {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                if (uploadMessage != null) {
-                    uploadMessage!!.onReceiveValue(null)
-                    uploadMessage = null
-                }
-                uploadMessage = filePathCallback
+
+            return if (checkPermission(1) && checkPermission(2)) {
+                uploadFileArray = filePathCallback
+                var takePictureIntent: Intent?
                 try {
-                    val intent = Intent()
-                    intent.type = "application/pdf"
-                    intent.action = Intent.ACTION_OPEN_DOCUMENT
-                    intent.addCategory(Intent.CATEGORY_OPENABLE)
-                    startActivityForResult(
-                        Intent.createChooser(intent, getString(R.string.select_pdf_file_text)),
-                        requestSelectCode
-                    )
+                    val mimetypes =
+                        arrayOf("image/*", "application/pdf")
+
+                    val contentSelectionIntent = Intent(Intent.ACTION_GET_CONTENT)
+                    contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE)
+                    contentSelectionIntent.type = "*/*"
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT)
+                        contentSelectionIntent.putExtra(Intent.EXTRA_MIME_TYPES, mimetypes)
+
+                    takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+                    if (takePictureIntent.resolveActivity(this@MainActivity.packageManager) != null) {
+                        var photoFile: File? = null
+                        try {
+                            photoFile = createImage()
+
+                        } catch (ex: IOException) {
+
+                        }
+                        if (photoFile != null) {
+                            aswCamMessage = "file:" + photoFile.absolutePath
+                            takePictureIntent.putExtra("PhotoPath", aswCamMessage)
+                            takePictureIntent.putExtra(
+                                MediaStore.EXTRA_OUTPUT,
+                                Uri.fromFile(photoFile)
+                            )
+                        } else {
+                            takePictureIntent = null
+                        }
+                    }
+
+                    val chooserIntent = Intent(Intent.ACTION_CHOOSER)
+                    chooserIntent.putExtra(Intent.EXTRA_INTENT, contentSelectionIntent)
+                    chooserIntent.putExtra(Intent.EXTRA_TITLE, getString(R.string.choose_file_text))
+                    chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(takePictureIntent))
+                    startActivityForResult(chooserIntent, fileChooserCode)
+                    true
                 } catch (e: ActivityNotFoundException) {
-                    uploadMessage = null
+                    uploadFileArray = null
                     CustomToast.toastIt(
                         applicationContext,
                         getString(R.string.cannot_open_file_chooser_text)
                     )
                     return false
                 }
-                return true
-            }
-            return false
-
-        }
-
-
-        //For Android 4.1 only
-        protected fun openFileChooser(
-            uploadMsg: ValueCallback<Uri>,
-            acceptType: String?,
-            capture: String?
-        ) {
-            mUploadMessage = uploadMsg
-            try{
-            val intent = Intent(Intent.ACTION_GET_CONTENT)
-            intent.addCategory(Intent.CATEGORY_OPENABLE)
-            intent.type = "application/pdf"
-            startActivityForResult(
-                Intent.createChooser(intent, getString(R.string.select_pdf_file_text)),
-                fileChooserCode
-            )
-            } catch (e: ActivityNotFoundException) {
-                uploadMessage = null
-                CustomToast.toastIt(
-                    applicationContext,
-                    getString(R.string.cannot_open_file_chooser_text)
-                )
-
+            } else {
+                getPermission()
+                false
             }
         }
+    }
 
-        protected fun openFileChooser(uploadMsg: ValueCallback<Uri>) {
-            mUploadMessage = uploadMsg
-            try{
-            val i = Intent(Intent.ACTION_GET_CONTENT)
-            i.addCategory(Intent.CATEGORY_OPENABLE)
-            i.type = "application/pdf"
-            startActivityForResult(
-                Intent.createChooser(i, getString(R.string.select_pdf_file_text)),
-                fileChooserCode
-            )
-            } catch (e: ActivityNotFoundException) {
-                uploadMessage = null
-                CustomToast.toastIt(
-                    applicationContext,
-                    getString(R.string.cannot_open_file_chooser_text)
-                )
-
-            }
-        }
-
-
+    //Creating image file for upload
+    private fun createImage(): File? {
+        @SuppressLint("SimpleDateFormat") val date =
+            SimpleDateFormat("yyyy_mm_ss").format(Date())
+        val fileName = "file_" + date + "_"
+        val directory =
+            getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+        return File.createTempFile(fileName, ".jpg", directory)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, intent: Intent?) {
         super.onActivityResult(requestCode, resultCode, intent)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            if (requestCode == requestSelectCode) {
-                if (uploadMessage == null) return
-                uploadMessage!!.onReceiveValue(
-                    WebChromeClient.FileChooserParams.parseResult(
-                        resultCode,
-                        intent
-                    )
-                )
-                uploadMessage = null
+        val results: Array<Uri>?
+        if (resultCode == Activity.RESULT_CANCELED) {
+            if (requestCode == fileChooserCode) {
+                // If the file request was cancelled (i.e. user exited camera),
+                // we must still send a null value in order to ensure that future attempts
+                // to pick files will still work.
+                uploadFileArray!!.onReceiveValue(null)
+                return
             }
-        } else if (requestCode == fileChooserCode) {
-            if (null == mUploadMessage) return
-            // Use MainActivity.RESULT_OK if you're implementing WebViewFragment inside Fragment
-            // Use RESULT_OK only if you're implementing WebViewFragment inside an Activity
-            val result =
-                if (intent == null || resultCode != RESULT_OK) null else intent.data
-            mUploadMessage!!.onReceiveValue(result)
-            mUploadMessage = null
-        } else Toast.makeText(applicationContext, "Failed to Upload Image", Toast.LENGTH_LONG)
-            .show()
+        }
+        if (resultCode == Activity.RESULT_OK) {
+            if (requestCode == fileChooserCode) {
 
+                if (uploadFileArray == null) {
+                    return
+                }
+                val stringData: String? = try {
+                    intent!!.dataString
+                } catch (e: Exception) {
+                    null
+                }
+
+                results = if (stringData == null && aswCamMessage != null) {
+                    arrayOf(Uri.parse(aswCamMessage))
+                } else {
+                    arrayOf(Uri.parse(stringData))
+                }
+                uploadFileArray!!.onReceiveValue(results)
+                uploadFileArray = null
+            }
+        }
+
+    }
+
+
+    //Checking if particular permission is given or not
+    private fun checkPermission(permission: Int): Boolean {
+        when (permission) {
+            1 -> return ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
+            2 -> return ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+        return false
+    }
+
+    private fun getPermission() {
+        val arrayPermission = mutableListOf<String>()
+        if (!checkPermission(1)) {
+            arrayPermission.add(returnPermission(1))
+            arrayPermission.add(returnPermission(2))
+        }
+        if (!checkPermission(2)) arrayPermission.add(returnPermission(3))
+
+        ActivityCompat.requestPermissions(
+            this@MainActivity,
+            arrayPermission.toTypedArray(), filePermission
+        )
+
+    }
+
+    private fun returnPermission(value: Int): String {
+        return when (value) {
+            1 -> Manifest.permission.WRITE_EXTERNAL_STORAGE
+            2 -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            } else {
+                ""
+            }
+            3 -> Manifest.permission.CAMERA
+            else -> ""
+        }
+
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>, grantResults: IntArray
+    ) {
+        if (requestCode == 1) { // If request is cancelled, the result arrays are empty.
+            if (!(grantResults.isNotEmpty()
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED)
+            ) { // permission denied, boo! Disable the
+// functionality that depends on this permission.
+                CustomToast.toastIt(applicationContext, getString(R.string.giveUsPermission))
+            }
+
+        }
     }
 
 }
